@@ -17,6 +17,13 @@
 # Output files from R CMD check
 /*.Rcheck/
 
+# Data file
+/Assignment 1/DATA/
+/Assignment 2/DATA/
+/Assignment 3/DATA/
+/Assignment 4/DATA/
+/Assignment 5/DATA/
+
 # RStudio files
 .Rproj.user/
 
@@ -37,3 +44,7 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# RMarkdown output
+*.pdf
+*.html
