@@ -48,3 +48,8 @@ vignettes/*.pdf
 # RMarkdown output
 *.pdf
 *.html
+/Assignment 1/OUTPUT/
+/Assignment 2/OUTPUT/
+/Assignment 3/OUTPUT/
+/Assignment 4/OUTPUT/
+/Assignment 5/OUTPUT/

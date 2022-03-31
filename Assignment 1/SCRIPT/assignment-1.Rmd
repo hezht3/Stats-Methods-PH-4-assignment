@@ -1,0 +1,406 @@
+---
+title: "Assignment 1"
+description: |
+  Biostats624 assignment 1
+author:
+  - name: Johnathan He
+    affiliation: Epidemiology, Johns Hopkins
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+
+```{r "setup", include = FALSE}
+require("knitr")
+opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+opts_knit$set(root.dir = "D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/biostat624-assignment/Assignment 1")
+```
+
+
+```{r}
+require(tidyverse)
+
+setwd("D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/biostat624-assignment/Assignment 1")
+```
+
+
+# Section 1
+
+
+```{r}
+wm <- read_csv("./DATA/words_matter_assg1_data.csv")
+```
+
+
+1.	How many observations are in the dataset?
+2.	How many variables are in the dataset?
+3.	What type of variable is ppage?  
+
+
+### Taking stock of what is in the data set: the `str()` command (str = “structure”)
+
+
+```{r}
+str(wm)
+```
+
+
+4.	How many unique values of ppage are there?
+
+
+```{r}
+length(unique(wm$ppage))
+```
+
+
+### Assessing missing values: `is.na` function
+
+
+5.	How many observations are missing a value for ppage?
+
+
+```{r}
+count(wm, is.na(ppage))
+table(is.na(wm$ppage))
+sum(is.na(wm$ppage))
+```
+
+
+6.	What type of variable is ppgender?  
+7.	How many unique values of ppgender are there?
+8.	How many observations are missing a value for ppgender?
+9.	Based  on the results from these commands can you ascertain how many males are in the data sample?
+
+
+```{r}
+class(wm$ppgender)
+str(wm$ppgender)
+table(is.na(wm$ppgender))
+length(unique(wm$ppgender))	
+
+count(wm, ppgender)
+```
+
+
+### Labelling Variable Names with Descriptive Text
+
+
+```{r}
+library(expss)  	
+wm <- apply_labels(wm,
+                   caseid = "respondent id",
+                   group = "Experimental Group",
+                   ppeducat = "Highest Education Level (Categorical)",
+                   ppethm = "Race and Ethnicity",
+                   ppgender = "Biological Sex",
+                   ppage = "Age (Years)")
+```
+
+
+```{r}
+str(wm)
+```
+
+
+### Labeling Values of Numeric Variables
+
+
+10.	 How do the values ppgender display – as numbers or words?   
+11.	   What does the [1:15] addition to wm$ppgender do?
+
+
+```{r}
+wm <- wm %>%
+    mutate(ppgender = factor(ppgender,
+                             levels = c(1, 2),
+                             labels = c("Male", "Female")))
+
+table(wm$ppgender)
+count(wm, ppgender)
+```
+
+
+```{r}
+wm$ppgender[1:15]
+```
+
+
+12.	What does the addition of `as.numeric` to `wm$ppgender[1:15]` do?
+
+
+```{r}
+as.numeric(wm$ppgender[1:15])
+```
+
+
+### Now for some preliminary analyses
+
+
+13.	What percentage of the sample are males?
+14.	How many respondents are in education level category 2?  
+
+
+```{r}
+table(wm$ppgender)
+prop.table(table(wm$ppgender))
+```
+
+
+```{r}
+count(wm, ppgender)
+#prop.table(count(wm, ppgender))
+```
+
+
+```{r}
+table(wm$ppeducat)	
+prop.table(table(wm$ppeducat))
+```
+
+
+```{r}
+count(wm, ppeducat)
+prop.table(count(wm, ppeducat))
+```
+
+
+15.	What is mean age of the subjects in the sample?
+16.	The youngest person(s) in the sample is/are how old?
+17.	What is the median age of the subjects in the sample?
+18.	What is the standard deviation of the sample age values?
+19.	What is the 70th percentile of the age values distribution?
+
+
+```{r}
+summary(wm)
+summary(wm$ppage)
+```
+
+
+```{r}
+sum(is.na(wm$ppage))
+```
+
+
+```{r}
+wm <- wm %>%
+    mutate(ppage2 = as.numeric(ppage))
+```
+
+
+```{r}
+summary(wm$ppage2)
+```
+
+
+```{r}
+wm$ppage[is.na(wm$ppage2)]
+```
+
+
+```{r}
+wm <- wm %>%
+    mutate(ppage = ifelse(ppage == "28 years", "28", ppage)) %>%
+    mutate(ppage2 = as.numeric(ppage))
+```
+
+
+```{r}
+summary(wm$ppage2)
+```
+
+
+```{r}
+mean(wm$ppage2)
+mean(wm$ppage2, na.rm = TRUE)
+```
+
+
+```{r}
+quantile(wm$ppage2, na.rm = TRUE)
+quantile(wm$ppage2, na.rm = TRUE, c(0.35,0.70))
+```
+
+
+```{r}
+sd(wm$ppage2, na.rm = TRUE)
+```
+
+
+```{r}
+wm %>%
+    summarise(mean_age = mean(ppage2, na.rm=TRUE), 
+    nobs = n(), 
+    median = median(ppage2, na.rm=TRUE),
+    percentiles = quantile(wm$ppage2, na.rm=TRUE, c(0.35,0.70)))
+```
+
+
+20.	What is mean age of the males in the sample?
+21.	What is the median age of the males in the sample?
+22.	   What is the 20th percentile of the age distribution for males?
+
+
+```{r}
+summary(wm$ppage2[wm$ppgender == "Male"])
+quantile(wm$ppage2[wm$ppgender == "Male"], na.rm=TRUE, c(0.20,0.50))
+```
+
+
+```{r}
+wm <- wm %>% select(-ppage)
+names(wm)
+
+wm <- wm %>% rename(ppage = ppage2)
+names(wm)
+```
+
+
+```{r}
+save(wm, file = "./OUTPUT/Assignment_1.RData")
+```
+
+
+```{r}
+savehistory("./OUTPUT/Assignment_1_words_matter.R")
+```
+
+
+# Section 2
+
+
+```{r}
+umaru <- read_csv("./DATA/umaru_data.csv")
+```
+
+
+23.	How many observations are in the dataset?
+24.	How many variables are in the dataset?
+25.	How many treatment groups are there?  (treat)
+26.	What type of variable is age?
+27.	How many observations are missing a value for age?
+28.	What type of variable is time?
+
+
+```{r}
+umaru <- apply_labels(umaru,
+                      age = "age in years",
+                      time = "time to relapse/censoring in days") %>%
+  mutate(relapse = factor(
+    relapse,
+    levels = c(0, 1),
+    labels = c("Censored", "Relapsed")
+  ))
+```
+
+
+```{r}
+dim(umaru)
+```
+
+
+```{r}
+unique(umaru$treat) %>% length()
+```
+
+
+```{r}
+class(umaru$age)
+```
+
+
+```{r}
+table(is.na(umaru$age))
+```
+
+
+```{r}
+class(umaru$time)
+```
+
+
+```{r}
+umaru <- umaru %>% mutate(treat = as.factor(treat))
+```
+
+
+```{r}
+str(umaru$treat)
+```
+
+
+```{r}
+umaru <- umaru %>%
+    mutate(time = as.numeric(gsub(": days", " ", time)))
+```
+
+
+```{r}
+#umaru <- umaru %>% mutate(time = parse_number(time))
+```
+
+
+29.	What proportion of the sample relapsed during the study 
+   follow-up period?
+30.	What was the average amount of time study participants were followed 
+   until relapse or censoring?
+31.	What is the median age of study participants?
+
+
+```{r}
+prop.table(table(umaru$relapse))
+```
+
+
+```{r}
+mean(umaru$time, na.rm = TRUE)
+```
+
+
+```{r}
+mean(umaru$age, na.rm = TRUE)
+```
+
+
+```{r}
+umaru %>% 
+    summarise(ir = sum(as.numeric(relapse == "Relapsed"))/sum(time, na.rm = T))
+```
+
+
+```{r}
+umaru %>% 
+    summarise(ir = sum(as.numeric(relapse == "Relapsed"))/sum(time, na.rm = T)*365.25/100)
+```
+
+
+```{r}
+require(survival)
+umaru <- umaru %>% mutate(ttr = Surv(time, relapse))
+```
+
+
+```{r}
+head(umaru$ttr)
+```
+
+
+```{r}
+kmumaru <- survfit(ttr ~ 1, data = umaru)
+```
+
+
+```{r}
+summary(kmumaru)
+```
+
+
+```{r}
+save(wm, umaru, file = "./OUTPUT/Assignment_1.RData")
+```
+
+
+```{r}
+save(wm, umaru, file = "./OUTPUT/ssignment_1.RData")
+```
+
