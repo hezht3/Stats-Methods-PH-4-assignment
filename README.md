@@ -1,2 +1,2 @@
-# Biostats-StatsMethods4-assignment
+# Stats-Methods-PH-4-assignment
 Course assignments
