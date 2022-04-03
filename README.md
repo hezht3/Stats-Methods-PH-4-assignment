@@ -1,2 +1,2 @@
-# Biostats-ML-assignment
+# Biostats-StatsMethods4-assignment
 Course assignments
