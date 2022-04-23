@@ -1,0 +1,534 @@
+---
+title: "Assignment 2"
+description: |
+  Biostats624 assignment 2
+author:
+  - name: Johnathan He 
+    affiliation: Epidemiology, Johns Hopkins
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+
+```{r "setup", include = FALSE}
+require("knitr")
+opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+opts_knit$set(root.dir = "D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 2")
+```
+
+
+```{r}
+require(tidyverse)
+require(lubridate)
+require(survival)
+require(survminer)
+
+setwd("D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 2")
+```
+
+
+# Section 1
+
+
+```{r}
+nyd2017 <- read_csv("./DATA/nyd2017_sample_5000.csv")
+```
+
+
+```{r}
+names(nyd2017)
+```
+
+
+```{r}
+names(nyd2017) <- make.names(names(nyd2017), unique = TRUE)
+names(nyd2017)
+```
+
+
+```{r}
+# convert character to factor
+# nyd2017 <- nyd2017 %>%
+#     mutate(Race = factor(Race),
+#            Age.Group = factor(Age.Group),
+#            Payment.Typology.1 = factor(Payment.Typology.1),
+#            Gender = factor(Gender),
+#            APR.Severity.of.Illness.Description = factor(APR.Severity.of.Illness.Description),
+#            APR.Severity.of.Illness.Code = factor(APR.Severity.of.Illness.Code))
+nyd2017 <- nyd2017 %>% mutate(Age.Group = factor(Age.Group))
+```
+
+
+1.	How many observations are in the nyd2017 dataset?
+
+
+```{r}
+nrow(nyd2017)
+```
+
+
+2.	How many variables are in the nyd2017 dataset?
+
+
+```{r}
+ncol(nyd2017)
+```
+
+
+3.	What type of variable is Payment.Typology.1?  
+
+
+```{r}
+class(nyd2017$Payment.Typology.1)
+```
+
+
+4.	How many unique values/levels of Payment.Typology.1 are there?
+
+
+```{r}
+nyd2017 %>% distinct(Payment.Typology.1) %>% nrow()
+```
+
+
+5.	How many observations are missing a value for Payment.Typology.1?
+
+
+```{r}
+table(is.na(nyd2017$Payment.Typology.1))
+```
+
+
+6.	What type of variable is admit.date?  
+
+
+```{r}
+class(nyd2017$admit.date)
+```
+
+
+7.	How many unique values/levels of admit.date are there?
+
+
+```{r}
+nyd2017 %>% distinct(admit.date) %>% nrow()
+```
+
+
+8.	How many observations are missing a value for admit.date?
+
+
+```{r}
+table(is.na(nyd2017$admit.date))
+```
+
+
+9.	What is the average total cost (Total.Costs) for the entire sample?
+
+10. What is the median total cost (Total.Costs) for the entire sample?
+
+
+```{r}
+summary(nyd2017$Total.Costs)
+```
+
+
+11. Make a basic version your favorite graphic (histogram,boxplot, etc…) for the variable Total.Costs.  What type of distribution do the cost values have?
+
+
+```{r}
+nyd2017 %>% 
+    ggplot(aes(Total.Costs)) +
+    geom_histogram() +
+    theme_minimal()
+```
+
+
+```{r}
+nyd2017 <- nyd2017 %>% 
+    mutate(discharge.date = make_date(year = 2017, month = discharge.month, day = discharge.day))
+```
+
+
+```{r}
+# update admit.date from string to date value
+nyd2017 <- nyd2017 %>% mutate(admit.date = parse_date(admit.date, format = "%m/%d/%y"))
+```
+
+
+```{r}
+nyd2017 <- nyd2017 %>% 
+    mutate(los = as.numeric(difftime(discharge.date, admit.date)))
+```
+
+
+12.	What is the average length of stay, in days, for the entire sample?
+
+13.	What is the median length of stay , in days, for the entire sample?
+
+14.	What is the largest observed length of stay value , in days, for the entire sample?
+
+
+```{r}
+summary(nyd2017$los)
+```
+
+
+15.	Make a basic version your favorite graphic (histogram,boxplot, etc…) for length of stay.   What type of distribution do the length of stay values have?
+
+
+```{r}
+nyd2017 %>% 
+    ggplot(aes(los)) +
+    geom_histogram() +
+    theme_minimal()
+```
+
+
+```{r}
+nyd2017 <- nyd2017 %>% mutate(Payment.Typology.1 = as.factor(Payment.Typology.1))
+fct_count(nyd2017$Payment.Typology.1)
+```
+
+
+```{r, results = 'hide'}
+nyd2017 <- nyd2017 %>%
+    mutate(payer = fct_collapse(
+        Payment.Typology.1,
+        BCBS = c("Blue Cross/Blue Shield"),
+        Mcare = c("Medicare"),
+        Mcaid = c("Medicaid"),
+        private = c("Private Health Insurance"),
+        other = c(
+            "Department of Corrections",
+            "Federal/State/Local/VA",
+            "Managed Care, Unspecified",
+            "Miscellaneous/Other",
+            "Self-Pay",
+            "Unknown"
+        )
+    ))
+```
+
+
+```{r}
+fct_count(nyd2017$payer)
+```
+
+
+16.	What is the mean length of stay for observations with Medicare as their primary payer type?
+
+17.	How many  observations with private insurance have a length of stay value?
+
+
+```{r}
+# means, sd’s, and n's of LOS by payer
+nyd2017 %>%
+    group_by(payer) %>%
+    summarise(mean_los = mean(los, na.rm = TRUE),
+              sd_los = sd(los, na.rm = TRUE),
+              nlos = sum(!is.na(los)))
+```
+
+
+```{r}
+# anova
+los_payer_anova <- aov(los ~ payer, data = nyd2017)
+summary(los_payer_anova)
+```
+
+
+18.	What is the estimated mean difference in length of stay for patients with Medicare as the primary payer type compared to patients with Blue Cross/Blue Shield as the primary payer type ? 
+
+21.	Which of the 5 payer groups has the observation with the largest length of stay value? (i.e. the patient with the longest length of stay is in which payer group)?
+
+
+```{r}
+# slr
+slr_los_payer <- lm(los ~ payer, data = nyd2017)
+summary(slr_los_payer)
+```
+
+
+19.	What is the lower endpoint of the 95% CI for the mean difference from #18?
+
+20.	What is the upper endpoint of the 95% CI for the mean difference from #18?
+
+
+```{r}
+confint(slr_los_payer)
+```
+
+
+```{r}
+los_payer_box <- ggplot(nyd2017, aes(x = payer, y = los)) +
+    geom_boxplot() +
+    theme_minimal()
+los_payer_box
+```
+
+
+22.	What is the mean cost for observations with Medicare as their primary payer type?
+
+23.	How many  observations with private insurance have a cost value?
+
+
+```{r}
+# means, sd’s, and n's of LOS by payer
+nyd2017 %>%
+    group_by(payer) %>%
+    summarise(mean_cost = mean(Total.Costs, na.rm = TRUE),
+              sd_cost = sd(Total.Costs, na.rm = TRUE),
+              ncost = sum(!is.na(Total.Costs)))
+```
+
+
+```{r}
+# anova
+Total.Costs_payer_anova <- aov(Total.Costs ~ payer, data = nyd2017)
+summary(Total.Costs_payer_anova)
+```
+
+
+24.	What is the estimated mean difference in costs for patients with Medicare as the primary payer type compared to patients with Blue Cross/Blue Shield as the primary payer type ?   
+
+27.	Which of the 5 payer groups has the observation with the largest cost value?
+
+
+```{r}
+# slr
+slr_Total.Costs_payer <- lm(Total.Costs ~ payer, data = nyd2017)
+summary(slr_Total.Costs_payer)
+```
+
+
+25.	What is the lower endpoint of the 95% CI for the mean difference from #24?
+
+26.	What is the upper endpoint of the 95% CI for the mean difference from #24?
+
+
+```{r}
+confint(slr_Total.Costs_payer)
+```
+
+
+```{r}
+Total.Costs_payer_box <- ggplot(nyd2017, aes(x = payer, y = Total.Costs)) +
+    geom_boxplot() +
+    theme_minimal()
+Total.Costs_payer_box
+```
+
+
+28.	What is the general nature of the relationship between average costs and length of stay? (negatively correlated, positively correlated, no apparent correlation)
+
+
+```{r}
+cost_los <- ggplot(nyd2017, aes(x = los, y = Total.Costs)) +
+    geom_point() +
+    theme_minimal()
+
+cost_los
+```
+
+
+```{r}
+slr_cost_los <- lm(Total.Costs ~ los, data = nyd2017)
+summary(slr_cost_los)
+```
+
+
+29.	What is the estimated average cost for patients who have a 2 day hospital stay?
+
+
+```{r}
+predict(slr_cost_los, newdata = tibble(los = 2))
+```
+
+
+30.	What is the estimated mean difference in average costs for patients with a 4 day length of stay compared to patients with a 2 day length of stay?
+
+
+```{r}
+predict(slr_cost_los, newdata = tibble(los = 4)) - predict(slr_cost_los, newdata = tibble(los = 2))
+```
+
+
+```{r}
+predict(slr_cost_los, newdata = tibble(los = c(4,2)))
+```
+
+
+31.	What is the lower endpoint of the 95% CI for the mean difference from #30?
+32.	What is the upper endpoint of the 95% CI for the mean difference from #30?
+
+
+$$
+Var(y_2 - y_1) = Var(2*\beta_{los}) = 4*Var(\beta_{los}) \\
+SE(y_2 - y_1) = 2*SE(\beta_{los}) = 80.89166 \\
+y_2 - y_1 \sim N(5488.772, 80.89166)
+$$
+
+
+```{r}
+summary(slr_cost_los)$coefficients["los", 1]*2 + c(qnorm(0.025), qnorm(0.975))*summary(slr_cost_los)$coefficients["los", "Std. Error"]*2
+```
+
+
+```{r}
+contrast::contrast(slr_cost_los, a = list(los = 4), b = list(los = 2))
+```
+
+
+# Section 2
+
+
+```{r}
+load("./DATA/umaru.RData")
+```
+
+
+1.	How many observations are in the dataset?
+
+2.	How many variables are in the dataset?
+
+3.	How many participants were randomized to the long-term treatment group?
+
+4.	How many participants were randomized to the short term treatment group?
+
+
+```{r}
+skimr::skim(umaru)
+```
+
+
+5.	Which of the treatment groups has a higher incidence of relapse among its patient after completion of treatment?  
+
+6.	What is the estimated incidence rate ratio of relapse in the follow-up period for subjects in the long-term treatment group compared to subjects from the short-term treatment group?
+
+7.	Is the association between time-to-relapse and treatment group statistically significant at the 0.05 level?
+
+
+```{r}
+# incidence rates by treatment
+irs <- umaru %>%
+  group_by(treat) %>%
+  summarise(
+    relpse = sum(relapse),
+    persontime = sum(time),
+    ir = sum(relapse, na.rm = T) / sum(time)
+  )
+
+# to display the results saved to the object ir
+irs
+
+# incidence rate ratio
+irr <- irs[2, 4] / irs[1, 4]
+
+# to display the results saved to the object irr
+irr
+```
+
+
+```{r}
+# 95% CI
+lnirr <- log(irr)
+selnirr <- sqrt(1 / irs[2, 2] + 1 / irs[1, 2])
+l <- exp(lnirr - 2 * selnirr)
+u <- exp(lnirr + 2 * selnirr)
+
+# to display endpoints
+c(l, u)
+```
+
+
+8.	treat is a binary categorical variable stored as numeric, not factor.  Why does this work in the Cox regression even though treat is not a factor variable
+
+9.	Why do you only not need to include both time and relapse as predictors in the coxph function, and only give supply  survobject as the “outcome”?
+
+10.	What is estimated hazard ratio of relapse in the follow-up period for subjects in the long-term treatment group compared to subjects from the short-term treatment group?
+
+11.	How does the estimated hazard ratio from #9 compare  in value to the estimated incidence rate ratio from #6?
+
+12.	If the estimated incidence rate ratio (#6) and hazard ratio (#9) are not exactly the same in value, why is this?
+
+13.	Do you know anyone who has met Sir David Cox?
+
+
+```{r}
+umaru <- umaru %>% mutate(ttr = Surv(time, relapse))
+
+umaru <- umaru %>% mutate(survobject = Surv(time, relapse == 1))
+#
+coxtreat <- coxph(survobject ~ treat, data = umaru)
+summary(coxtreat)
+```
+
+
+```{r}
+kmtrt <- survfit(survobject ~ treat, data = umaru)
+ggsurvplot(kmtrt,
+           conf.int = F,
+           risk.table = FALSE,
+           censor = F)
+```
+
+
+14.	Which of the 3 non-missing IV drug use history groups has the highest estimated incidence rate of relapse in the follow-up period?
+
+
+```{r}
+# incidence rates by treatment
+irs <- umaru %>%
+  group_by(IV_history) %>%
+  summarise(
+    relpse = sum(relapse),
+    persontime = sum(time),
+    ir = sum(relapse, na.rm = T) / sum(time)
+  )
+
+# to display the results saved to the object ir
+irs
+
+# incidence rate ratio
+irs[2, 4] / irs[1, 4]
+irs[3, 4] / irs[1, 4]
+```
+
+
+15.	Why do you need to put the “as.factor” in front of the predictor IV_history in the above command?
+
+16.	What is the estimated hazard ratio of relapse for those who were former IV drug users compared to those who never used IV drugs
+
+17.	Is the ratio from #16 statistically significant?
+
+
+```{r}
+coxIV<- coxph(survobject ~ IV_history, data = umaru)
+summary(coxIV)
+
+coxIV<- coxph(survobject ~ as.factor(IV_history), data = umaru)
+summary(coxIV)
+
+```
+
+
+```{r}
+kmIV <- survfit(survobject ~ IV_history, data = umaru)
+ggsurvplot(kmIV,
+           conf.int = F,
+           risk.table = FALSE,
+           censor = F)
+```
+
+
+19. Suppose that in early 2021, 100,000 persons without Covid were given the first dose of the vaccine. Approximately how many cases would be prevented in the 90 days following vaccine completion compared to the situation where the 100,000 persons had not been vaccinated?
+
+
+```{r}
+ir_vaccine <- 39/4015
+ir_placebo <- 82/3982
+person_year <- 100000 * 90 / 365
+(ir_placebo - ir_vaccine) * person_year
+```
+

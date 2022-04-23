@@ -18,11 +18,7 @@
 /*.Rcheck/
 
 # Data file
-/Assignment 1/DATA/
-/Assignment 2/DATA/
-/Assignment 3/DATA/
-/Assignment 4/DATA/
-/Assignment 5/DATA/
+*DATA/
 
 # RStudio files
 .Rproj.user/
@@ -48,8 +44,4 @@ vignettes/*.pdf
 # RMarkdown output
 *.pdf
 *.html
-/Assignment 1/OUTPUT/
-/Assignment 2/OUTPUT/
-/Assignment 3/OUTPUT/
-/Assignment 4/OUTPUT/
-/Assignment 5/OUTPUT/
+*OUTPUT/

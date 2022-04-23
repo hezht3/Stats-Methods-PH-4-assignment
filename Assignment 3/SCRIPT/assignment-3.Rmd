@@ -1,0 +1,10 @@
+---
+title: "Assignment 3"
+author:
+  - name: Johnathan He 
+    affiliation: Epidemiology, Johns Hopkins
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+

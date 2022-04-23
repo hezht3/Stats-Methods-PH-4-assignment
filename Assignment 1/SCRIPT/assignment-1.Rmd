@@ -262,7 +262,7 @@ save(wm, file = "./OUTPUT/Assignment_1.RData")
 
 
 ```{r}
-savehistory("./OUTPUT/Assignment_1_words_matter.R")
+#savehistory("./OUTPUT/Assignment_1_words_matter.R")
 ```
 
 
@@ -370,7 +370,7 @@ umaru %>%
 
 ```{r}
 umaru %>% 
-    summarise(ir = sum(as.numeric(relapse == "Relapsed"))/sum(time, na.rm = T)*365.25/100)
+    summarise(ir = sum(as.numeric(relapse == "Relapsed"))/sum(time, na.rm = T)*365*100)
 ```
 
 
