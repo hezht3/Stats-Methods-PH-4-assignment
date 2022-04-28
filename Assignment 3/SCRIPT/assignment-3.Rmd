@@ -8,3 +8,620 @@ output: distill::distill_article
 ---
 
 
+```{r "setup", include = FALSE}
+require("knitr")
+opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+opts_knit$set(root.dir = "D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 3")
+```
+
+
+```{r}
+require(tidyverse)
+require(miceadds)
+setwd("D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 3")
+```
+
+
+# Part 1
+
+
+```{r}
+# Read in the data set
+load("./DATA/opth_data_long_all_records.Rdata")
+```
+
+
+To start, let's remind ourselves of how about some aspects of the data
+
+
+1. How many observations are in the dataset?
+
+
+```{r}
+dim(opth_data_long)
+```
+
+
+2. How many individuals (persons) are in the dataset?
+
+
+```{r}
+opth_data_long %>% distinct(id) %>% nrow()
+```
+
+
+3. How many clusters of person-eye combinations are in the dataset?
+
+
+```{r}
+opth_data_long %>% distinct(id, eye) %>% nrow()
+```
+
+
+4. How many observations are missing a visual acuity score measure?
+
+
+```{r}
+opth_data_long %>% filter(is.na(va) == TRUE) %>% nrow()
+```
+
+
+Now let's look at some characteristics of the number of observations per 
+individual in the data in this long version of the dataset with no observations 
+dropped
+
+
+5. What is the mean number of records (rows) per person in the dataset?
+
+
+```{r}
+pat_data <- opth_data_long %>% 
+        group_by(id) %>%
+        summarize(n_per_id = n())
+summary(pat_data$n_per_id)
+```
+
+
+```{r}
+sd(pat_data$n_per_id, na.rm = TRUE)
+```
+
+
+By design, and including all potential records per person (i.e. not excluding
+records for missing follow-up visits), this value is the same for all persons 
+in the study: 20 and hence the sd=0 
+If the records for visits that did not actually happen, i.e. with missing values 
+for va, were first dropped from the dataset then this total would not necessarily 
+be the same across all individuals in the dataset.  Now let's count the number of 
+records that are not missing a visual acuity score (va) value per subject, and 
+look at a summary of the results
+
+
+8. What is the mean number of records (rows) with non-missing values of visual 
+acuity scores (va) per person in the dataset?
+
+
+9. What is median number of records (rows) with non-missing values of visual 
+acuity scores (va) per person in the dataset?
+
+
+```{r}
+pat_data <- opth_data_long %>%
+    filter(!is.na(va)) %>%
+    group_by(id) %>%
+    summarize(n_per_id = n())
+        
+summary(pat_data$n_per_id)
+```
+
+
+```{r}
+sd(pat_data$n_per_id, na.rm = TRUE)
+```
+
+
+Now let's take a similar approach to looking at the sex and baseline age 
+distributions for the 156 persons in this study.
+
+
+Can you tell what the `mutate(row = row_number())` and `filter(row == 1)` lines of 
+code are doing? There are filtering to only one row of data per id (patient).  
+Why is this the right way to look at person-level characteristics?
+
+
+11. How many males are in the dataset?
+
+
+```{r}
+pat_data <- opth_data_long %>% 
+    group_by(id) %>%
+    mutate(row = row_number()) %>%
+    filter(row == 1) %>%
+    select(c(id, age, sex))
+    
+table(pat_data$sex)
+```
+
+
+12. What percentage of the individuals in the dataset are male?
+
+
+```{r}
+prop.table( table(pat_data$sex))
+```
+
+
+13. What is the average age of the 156 indiviudals in the dataset?
+
+
+```{r}
+mean(pat_data$age, na.rm = TRUE)
+```
+
+
+14. What is the standard deviation of age for the 156 individuals in the dataset?
+
+
+```{r}
+sd(pat_data$age, na.rm = TRUE)
+```
+
+
+You can check this is right by taking a look at pat_data. Notice the dimensions are 156x3, 
+so one row per patient. You also see that the id changes for each row of data.
+
+
+```{r}
+pat_data %>% head()
+```
+
+
+We don't want to do these calculations on the whole dataset (opth_data_long) because 
+then we would be finding the mean age of 3120 observations, not 156!  We would get 
+the same answer in this case, because each patient has the same number of observations.  
+But if the missing records were removed, we would no longer get the same thing!
+
+
+```{r}
+mean(opth_data_long$age)  # all 3120 records
+```
+
+
+```{r}
+mean(opth_data_long$age[!is.na(opth_data_long$va)]) # missing VA records removed
+```
+
+
+Now. let's look at some characteristics of the within-person visual acuity value distributions.  
+You will first need to compute the 90th percentile of all `va` values in the original long form 
+dataset and replace XX with this value in the following command.
+(hint: the quantile() function will be helpful). 
+You will then need to access and summarize the appropriate information stored 
+in the tibble pat_data to answer 15, 17-19, and to make the histogram for #16
+
+
+```{r}
+quantile(opth_data_long$va, 0.9, na.rm = TRUE)
+```
+
+
+```{r}
+pat_data <- opth_data_long %>%
+    group_by(id) %>%
+    filter(!is.na(va)) %>%
+    summarize(id_mean_va = mean(va),
+              tot_va_gt_90p = sum(va >= 89),
+              n_per_id = n(),
+              any_va_gt_90p = tot_va_gt_90p > 0,
+              pct_va_gt_90p = tot_va_gt_90p / n_per_id)
+```
+
+
+15. What is the largest mean visual acuity score across the 156 patients?
+
+
+```{r}
+summary(pat_data$id_mean_va)
+```
+
+
+16. What is the general shape of the distribution of the within-person mean 
+visual acuity scores for the sample?
+
+
+```{r}
+ggplot(data = pat_data, aes(id_mean_va)) +
+    geom_histogram(aes(y = 100 * ..count.. / sum(..count..)), binwidth = 2) +
+    theme_minimal()
+```
+
+
+17. What percentage of the 156 individuals in the study sample had at least 
+one `va` measurement greater than or equal to the 90th percentile of all `va`
+measurements?
+
+
+```{r}
+prop.table(table(pat_data$tot_va_gt_90p >= 1))
+```
+
+
+18. What percentage of the 156 individuals in the study sample had 10 or more 
+`va` measurements greater than or equal to the 90th percentile of all `va` measurements?
+
+
+```{r}
+prop.table( table(pat_data$tot_va_gt_90p >= 10))
+```
+
+
+19. What percentage of the 156 individuals in the study sample had 80% or more 
+of their `va` measurements greater than or equal to the 90th percentile of all 
+`va` measurements?
+
+
+```{r}
+prop.table(table(pat_data$pct_va_gt_90p >= .8))
+```
+
+
+okay, now let's do some analyses with comparing the va scores between males and 
+females, and the relationship between follow-up va scores and age at baseline.
+We will look at the results both ignoring the potential with-in correlation of 
+va measurements over time, and accounting for this correlation. If there is 
+correlation, sometimes taking this into account will increase the precision of 
+the comparison measure estimate of interest (i.e. reduce the standard error of 
+the estimate), and sometimes it will decrease the precision of this estimate.  
+We will explore the "when and why" behind this when we formally discuss adjustments 
+for clustering. For now, we want you to pay attention to how this precision changes, 
+if it does, when accounting for this clustering.
+
+
+The following simple linear regression is equivalent to an unpaired t-test 
+(assuming equal pop variances) comparing the mean of va scores for the treated eyes
+to the untreated eyes
+
+
+20. What is the mean difference in `va` scores for males compared to females?
+
+
+```{r}
+summary(lm(va ~ sex, data = opth_data_long))
+```
+
+
+21 & 22. What is 95% CI for the mean difference in #20 (upper and lower endpoints) 
+ignoring the within person correlation in va scores?
+
+
+```{r}
+confint(lm(va ~ sex, data = opth_data_long))
+```
+
+
+This runs the same t-test, but accounts for the within-person correlation in the regression outcome
+
+
+```{r}
+summary(lm.cluster(va ~ sex, data = opth_data_long, cluster = "id"))
+```
+
+
+23 & 24. What is 95% CI for the mean difference in #20 (upper and lower endpoints) 
+after accounting for the within person correlation in va score
+
+
+```{r}
+confint(lm.cluster(va ~ sex, data = opth_data_long, cluster = "id"))
+```
+
+
+Use the approriate results from the summaries of the lm and lm.cluster command results and correspnoding confidence intervals (confint) to answer questions 20-24.
+
+
+Plot a scatterplot of all follow-up va scores compared to baseline age
+
+
+25. What is the general nature of the relationship between follow-up va scores 
+and the baseline age?
+
+
+```{r}
+ggplot(data = opth_data_long, aes(x = age, y = va)) +
+    geom_point() +
+    theme_minimal()
+```
+
+
+```{r}
+cor.test(opth_data_long$age, opth_data_long$va)
+```
+
+
+Now run simple linear regression of the association between `va` scores (over time) 
+and age at baseline visit: one that ignores this correlation, and one that that 
+accounts for this correlation
+
+
+26. What is the mean difference in follow-up `va` scores for persons with a baseline 
+age of 78 compared to persons who have a baseline age of 73? (more generically, 
+what is the mean difference in follow-up scores for two groups of persons who 
+have baseline ages that differ by 5 years?)
+
+
+```{r}
+#ignoring within person correlation
+summary(lm(va ~ age, data = opth_data_long))
+```
+
+
+```{r}
+summary(lm(va ~ age_m, data = opth_data_long %>% mutate(age_m = age/5)))
+```
+
+
+```{r}
+confint(lm(va ~ age, data = opth_data_long))
+```
+
+
+```{r}
+confint(lm(va ~ age_m, data = opth_data_long %>% mutate(age_m = age/5)))
+```
+
+
+```{r}
+# accounting for within person correlation          
+summary(lm.cluster(va ~ age, data = opth_data_long, cluster = "id"))
+```
+
+
+```{r}
+summary(lm.cluster(va ~ age_m, data = opth_data_long %>% mutate(age_m = age/5), cluster = "id"))
+```
+
+
+```{r}
+confint(lm.cluster(va ~ age, data = opth_data_long, cluster = "id"))
+```
+
+
+```{r}
+confint(lm.cluster(va ~ age_m, data = opth_data_long %>% mutate(age_m = age/5), cluster = "id"))
+```
+
+
+Use the approriate results from the summaries of lm and lm.cluster ccommand results and correspnoding confidence intervals (confint) to answer questions 26-30
+
+
+# Part 2
+
+
+```{r}
+# Load necessary packages
+require(lme4)
+require(lmerTest)
+```
+
+
+```{r}
+load("./DATA/opth_data_long_all_records.Rdata")
+```
+
+
+##  VA scores by sex
+
+
+1. Is there any explicit link (i.e. pairing) between each male in the sample, 
+and a specific female (or females) in the sample (i.e. spouses, sibling etc..)
+
+
+2. Based on the first model (model ignoring potential within person correlation 
+in va outcomes), what is the estimated mean difference in va scores for 
+male patients compared to female patients?
+
+
+```{r}
+# Simple linear regression ignoring potential correlation of va outcomes with person
+slr_sex <- lm(va ~ sex, data = opth_data_long)
+```
+
+
+```{r}
+summary(slr_sex)
+```
+
+
+```{r}
+confint(slr_sex)
+```
+
+
+```{r}
+# Mixed-model simple linear regression with "random effect" intercept approach for handling potential within person correlation of repeated va measurments
+slr_sex_rint <- lmer(va ~ sex + (1|id), data = opth_data_long)
+```
+
+
+3. How does this estimated estimated mean difference in va scores for male 
+patients compared to female patients from the second model compare in 
+value to this estimated mean difference from the first model?
+
+
+```{r}
+summary(slr_sex_rint)
+```
+
+
+4. How does the width of the 95% CI for this mean difference from the 2nd 
+model compared to the width from the first model?
+
+
+```{r}
+confint(slr_sex_rint)
+```
+
+
+##  VA scores by treatment eye (vs. control)
+
+
+5. Is there any explicit link (i.e. pairing) between each eye in the  
+treatment sample, and a specific eye in the control sample?
+
+
+Scatterplot va versus group for a simple scatterplot of va vs. group: not the best choice of graphics when y is continuous and x is binary, but this is helpful for contrasting with the next graph
+
+
+```{r}
+ggplot(data = opth_data_long, aes(x = group, y = va)) +
+    geom_point() +
+    theme_minimal()
+```
+
+
+6. Based on the first model (the model ignoring potential within person 
+correlation in va outcomes), what is the estimated mean difference 
+in va scores for the treated eyes compared to the untreated eyes?
+
+
+```{r}
+# Simple linear regression ignoring correlation of va outcomes with person
+slr_laser <- lm(va ~ group, data = opth_data_long)
+summary(slr_laser)
+```
+
+
+```{r}
+confint(slr_laser)
+```
+
+
+"Spaghetti Plot" of va versus group: this plot shows separate linear regression lines for each individual person in the dataset. So the relationship between visual acuity and treatment group is estimated separately for each person using the data from only that person!
+
+
+Each line represents that straight-line relationship for a single person.
+
+
+```{r}
+ggplot(data = opth_data_long, aes(x = group, y = va)) +
+    geom_smooth(aes(group = id), method = "lm", se = FALSE, size = .5) +
+    coord_cartesian(xlim = c(1.5, 1.5)) + # just to make axis spacing better for categorical x-variable
+    theme_minimal()
+```
+
+
+7. How does this estimated mean difference from the second model compare 
+in value to this estimated mean difference from the first model?
+
+
+```{r}
+# Mixed-model simple linear regression with "random effect" interccept  approach for handling within person correlation of repeated va measurments
+slr_laser_rint <- lmer(va ~ group + (1|id), data = opth_data_long)
+summary(slr_laser_rint)
+```
+
+
+8. How does the width of the 95% CI for this mean difference from the 2nd 
+model compared to the width from the first model?
+
+
+```{r}
+confint(slr_laser_rint)
+```
+
+
+## time since randomization (including 0, i.e. baseline)
+
+
+9. Is there any explicit linkage between va measures over time?
+
+
+Before regressing, let's check on the class of time
+
+
+```{r}
+class(opth_data_long$time)
+```
+
+
+Let's convert this variable to numeric for regression purposes and so out
+plots can have an x-axis of numeric time (in months) since
+
+
+```{r}
+opth_data_long <- opth_data_long %>%
+    mutate(time = as.numeric(time))
+```
+
+
+Simple scatterplot ("no frills") of va versus follow-up time
+
+
+```{r}
+ggplot(data = opth_data_long, aes(x = time, y = va)) +
+    geom_point() +
+    theme_minimal()
+```
+
+
+Simple linear regression ignoring potential with-in person correlation of 
+va outcomes, fit assuming a linear relationship with continuous time (even  
+though measured va only at specific, discrete points on a continuum of time)
+
+
+10. Based on the first model, What is the estimated mean difference in va 
+scores for a one month difference in follow-up times (3 mos to 2 mos, 
+12 mos to 11 mos etc..)?
+
+
+```{r}
+slr_time <- lm(va ~ time, data = opth_data_long)
+summary(slr_time)
+```
+
+
+```{r}
+confint(slr_time)
+```
+
+
+"Spaghetti Plot" of va versus time: this plot shows separate linear 
+regression lines for each individual person in the dataset. So the relationship
+between visual acuity and time is estimated separately for each person using 
+the data from only that person!
+
+Each line represents that straight-line relationship for a single person.
+
+
+```{r}
+ggplot(data = opth_data_long, aes(x = time, y = va)) +
+    geom_smooth(aes(group = id), method = "lm", se = FALSE, size = .5) +
+    theme_minimal()
+```
+
+
+Mixed-model simple linear regression with "random effect" intercept approach 
+for handling within person correlation of repeated va measurments
+
+
+11. How does this estimated mean difference from the second model compare 
+in value to this estimated mean difference from the first model?
+
+
+```{r}
+slr_time_int <- lmer(va ~ time + (1|id), data = opth_data_long)
+summary(slr_time_int)
+```
+
+
+12. How does the width of the 95% CI for this mean difference from the 2nd 
+model compared to the width from the first model?
+
+
+```{r}
+confint(slr_time_int)
+```
+
+
+13. In the mixed-model regressions, we handled with-in person correlation of repeated va measurements. Meaning we accounted for the fact that va measurements within a person are likely to be similar to each other and are therefore not independent observations.  What is another group of va measurements we expect to be correlated, beyond just the measurements within each person?
+
