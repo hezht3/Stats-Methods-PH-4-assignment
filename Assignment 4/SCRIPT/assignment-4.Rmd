@@ -1,0 +1,446 @@
+---
+title: "Assignment 4"
+author:
+  - name: Johnathan He
+    affiliation: Epidemiology, Johns Hopkins
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r "setup", include = FALSE}
+require("knitr")
+opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE, error = TRUE)
+opts_knit$set(root.dir = "D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 4")
+```
+
+
+```{r}
+require(tidyverse)
+require(tidymodels)
+require(lmtest)
+require(multcomp)
+setwd("D:/OneDrive - Johns Hopkins/Course/140.624.71 - Statistical Methods in Public Health IV/assignments/Stats-Methods-PH-4-assignment/Assignment 4")
+```
+
+
+```{r}
+load("./DATA/Missed_Medical_Appointments_Brazil.Rdata")
+```
+
+
+1. How many observations are in the dataset?
+
+
+```{r}
+dim(dfsamp)
+```
+
+
+2. How many unique individuals (patients) are in the dataset?
+
+
+```{r}
+dfsamp %>% distinct(PatientId) %>% nrow()
+```
+
+
+3. How is the variable Gender stored?
+
+
+```{r}
+class(dfsamp$Gender)
+```
+
+
+4. How many records are missing a value for Gender?
+
+
+```{r}
+dfsamp %>% filter(is.na(Gender) == TRUE) %>% nrow()
+```
+
+
+5. What is the average time elapsed (days) between making an appointment and the appointment date?
+
+
+```{r}
+dfsamp %>% pull(time_elapsed) %>% mean()
+```
+
+
+6. What percent of the scheduled appointments in the sample were missed?
+
+
+```{r}
+(dfsamp %>% filter(missed_appt == "Yes") %>% nrow())/nrow(dfsamp)
+```
+
+
+7. What percentage of the scheduled appointments in the sample had an SMS message reminder send about the appointment?
+
+
+```{r}
+(dfsamp %>% filter(SMS_received == 1) %>% nrow())/nrow(dfsamp)
+```
+
+
+8. What is the estimated odds ratio of a missed appointment when a patient receives an SMS reminder compared to when a patient does not?
+
+
+```{r}
+logistic_reg() %>%
+    set_engine("glm") %>%
+    set_mode("classification") %>%
+    fit(missed_appt ~ SMS_received, data = dfsamp %>% 
+          mutate(missed_appt = factor(missed_appt, levels = c("No", "Yes")))) %>% 
+    tidy(exponentiate = TRUE) %>% 
+    knitr::kable()
+```
+
+
+9. What is the average age of the patients for appointments that that received an SMS reminder?
+
+
+```{r}
+dfsamp %>% filter(SMS_received == 1) %>% pull(Age) %>% mean()
+```
+
+
+10. What is the average age of the patients for appointments that did not receive an SMS reminder?
+
+
+```{r}
+dfsamp %>% filter(SMS_received == 0) %>% pull(Age) %>% mean()
+```
+
+
+11. What is the average age of the patients for missed appointments?
+
+
+```{r}
+dfsamp %>% filter(missed_appt == "Yes") %>% pull(Age) %>% mean()
+```
+
+
+12. What is the average age of the patients for non-missed appointments?
+
+
+```{r}
+dfsamp %>% filter(missed_appt == "No") %>% pull(Age) %>% mean()
+```
+
+
+13. What is the unadjusted odds ratio of a missed appointment when a patient receives an SMS reminder compared to when a patient does not?
+
+
+```{r}
+# Logistic Regression Analyses
+   
+# Unadjusted Analyses (Simple Logistic Regressions)
+
+# Primary Question
+slrtext <- glm(missed_appt ~ SMS_received,
+               family = binomial(link = "logit"),
+               data = dfsamp)
+      
+class(dfsamp$missed_appt)
+
+tidy(slrtext, conf.int = TRUE) %>% knitr::kable()
+tidy(slrtext, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+dfsamp <- dfsamp %>% mutate(missed_appt = factor(missed_appt))
+levels(dfsamp$missed_appt)
+      
+slrtext <- glm(missed_appt ~ SMS_received,
+               family = binomial(link = "logit"),
+               data = dfsamp)
+
+# Does this work properly?  
+# Before you proceed, you may want to create a 0/1 version of "missed appointment" 
+# and verify you get sample results for the logistic regression
+  
+tidy(slrtext, conf.int = TRUE) %>% knitr::kable()
+tidy(slrtext, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+14. Which of the binary and categorical predictors frome the previous analyses (Sex (Gender), Diabetes, Alcoholism, Day of Appointment) were statistically significantly associated with missing an appointment in unadjusted analyses? 
+
+
+```{r}
+# Check unadjusted associations with other predictors
+    
+# Categorical   (Sex (Gender variable in DataSet), Diabetes, Alcoholism, Day of Appointment)
+      
+# you can adapt the code from the "Primary Question" to run these results
+        
+# note: for the multi-catgorical day of the week predictor, the following 
+# code will get an overall p-value for testing day of the week via a LR test 
+        
+slrday <- glm(missed_appt ~ appt_day, family = binomial(link = "logit"), data = dfsamp)
+null1 <- glm(missed_appt ~ 1, family = binomial(link = "logit"), data = dfsamp)
+lrtest(null1, slrday) %>% tidy() %>% knitr::kable()
+```
+
+
+```{r}
+c("Gender", "Diabetes", "Alcoholism", "appt_date") %>% 
+    map(~ glm(missed_appt ~ get(.x), family = binomial(link = "logit"), data = dfsamp) %>% 
+              tidy(exponentiate = TRUE) %>% knitr::kable())
+```
+
+
+15. What is the estimated odds ratio of a missed appointment for 50-year-old patients compared to 49-year-old patients?
+
+16. What is the lower limit for the 95% CI for the quantity estimated in #15?
+
+17. What is the upper limit for the 95% CI for the quantity estimated in #15?
+
+
+```{r}
+# Continuous 
+        
+# Age (for some insight on how to check the linearity assumption when age 
+# is modeled as continous, and to see why a spline know was chosen at 
+# 75 years, please see the end of this document for code to create and graph
+# a lowess smoother of the log odds of missing an appointment vs. Age)  
+        
+# model 1, linear age
+slragel <- glm(missed_appt ~ Age, family = binomial(link = "logit"), data = dfsamp)
+summary(slragel)
+tidy(slragel, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+# model 2, age with spline at 75
+dfsamp <- dfsamp %>% mutate(age_spl_75 = (Age >= 75)*(Age-75))
+slragesp75 <- glm(missed_appt ~ Age + age_spl_75,
+                  family = binomial(link = "logit"),
+                  data = dfsamp)
+summary(slragesp75)
+tidy(slragesp75, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+18. What is the estimated odds ratio of a missed appointment for 50-year-old patients compared to 40-year-old patients?
+
+19.  What is the lower limit for the 95% CI for the quantity estimated in #18?
+
+20.  What is the upper limit for the 95% CI for the quantity estimated in #18?
+
+
+```{r}
+dfsamp <- dfsamp %>% 
+    mutate(age_10 = Age/10) %>% 
+    mutate(age_10_spl_75 = (age_10 >= 7.5)*(age_10-7.5))
+slragesp_10_75 <- glm(missed_appt ~ age_10 + age_10_spl_75,
+                      family = binomial(link = "logit"),
+                      data = dfsamp)
+summary(slragesp_10_75)
+tidy(slragesp_10_75, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+21.  What is the estimated proportion of appointments missed by of 40-years-olds?
+
+
+```{r}
+logodds <- predict(slragesp75, newdata = tibble(Age = 40, age_spl_75 = 0))
+odds <- exp(logodds)
+odds/(1 + odds)
+```
+
+
+Or
+
+
+```{r}
+# code for #21: can adapt to answer #22
+            
+# create matrix (dataframe with 1 row) that has columns corresponding 
+# to each coefficient from the logistic regression model (glm object)  
+# slragesp75, and population all values with 0
+            
+coefeq <- matrix(data = 0, nrow = 1, ncol = length(names(coefficients(slragesp75))))
+colnames(coefeq) <- names(coefficients(slragesp75))
+     
+            
+# to set up the linear combination of "Intercept" + 40*"Age", 
+# replace value in "Intercept" column with 1, and "Age" columns with 40
+coefeq[1,"(Intercept)"] <- 1
+coefeq[1,"Age"] <- 40
+coefeq
+# use glht to compute lincom
+lincom1 <- glht(model = slragesp75, linfct = coefeq, rhs = 0)
+lincom1
+# to get estimated probability of missing appointment for 40-years-olds, 
+# take estimated odds/(1 + estimated odds)
+exp(coefficients(lincom1))/(1 + exp(coefficients(lincom1)))
+```
+
+
+22.  What is the estimated proportion of appointments missed by 80-years-olds?
+
+
+```{r}
+logodds <- predict(slragesp75, newdata = tibble(Age = 80, age_spl_75 = 80-75))
+odds <- exp(logodds)
+odds/(1 + odds)
+```
+
+
+Or
+
+
+```{r}
+coefeq <- matrix(data = 0, nrow = 1, ncol = length(names(coefficients(slragesp75))))
+colnames(coefeq) <- names(coefficients(slragesp75))
+
+coefeq[1,"(Intercept)"] <- 1
+coefeq[1,"Age"] <- 80
+coefeq[1,"age_spl_75"] <- 80-75
+
+lincom1 <- glht(model = slragesp75, linfct = coefeq, rhs = 0)
+lincom1
+
+exp(coefficients(lincom1))/(1 + exp(coefficients(lincom1)))
+```
+
+
+```{r}
+# just for demonstration, here is some code to graph the predicted 
+# probabilities of missing an appointment as a function of age based 
+# on the results of missing an appointmnet across the age range in the sample
+# based on the results from slragesp75
+            
+# this will created a variable storingcorresponding predicted probability 
+# for each observations based on its age.
+# The type = "response" option tells the function to return the estimated
+# probability (phat) as opposed to the estimated ln odds.
+dfsamp <- dfsamp %>% mutate(phatage = predict(slragesp75, type = "response"))
+              
+ggplot(data = dfsamp, aes(x = Age, y = phatage)) +
+    geom_line() +
+    xlab("Age (Years)") + 
+    ylab("Probability Missing an Appointment)") +
+    labs(title = "Medical Appointment Data From Brazil, May - June 2016\nEstimated from a Logistic Regression with Age As Continuous with Linear Spline at 75") +
+    theme_bw() +
+    theme(plot.title = element_text(color = "black", size = 18, face = "bold"),
+          axis.title.x = element_text(color = "black", size = 18, face = "bold"),
+          axis.title.y = element_text(color = "black", size = 18, face = "bold"),
+          axis.text = element_text(size = 14, face = "bold")) +
+    scale_x_continuous(breaks = seq(20, 100, 10))
+```
+
+
+23. What is the odds ratio of a missed appointment for a group of patients who scheduled their appointment 21 days prior to the appointment date compared to patients who scheduled their appointment 20 days prior to the appointment date?
+
+
+```{r}
+# model 1, linear time
+slrtimel <- glm(missed_appt ~ time_elapsed, family = binomial(link = "logit"), data = dfsamp )
+summary(slrtimel)
+tidy(slrtimel, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+# model 2, time elapses with spline at 50
+dfsamp <- dfsamp %>% mutate(time_spl_50 = (time_elapsed >= 50)*(time_elapsed - 50))
+slrtimesp50 <- glm(missed_appt ~ time_elapsed + time_spl_50,
+                   family = binomial(link = "logit"), data = dfsamp)
+summary(slrtimesp50)
+tidy(slrtimesp50, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+24. What is the odds ratio of a missed appointment for a group of patients who scheduled their appointment 21 days prior to the appointment date compared to patients  group of patients who scheduled their appointment 16 days prior to the appointment date?
+
+25. What is the lower limit for the 95% CI for the quantity estimated in #24?
+
+26. What is the upper limit for the 95% CI for the quantity estimated in #24?
+
+
+```{r}
+dfsamp <- dfsamp %>%
+    mutate(time_elapsed_5 = time_elapsed/5) %>% 
+    mutate(time_5_spl_50 = (time_elapsed_5 >= 10)*(time_elapsed_5 - 10))
+slrtimesp5_50 <- glm(missed_appt ~ time_elapsed_5 + time_5_spl_50,
+                     family = binomial(link = "logit"), data = dfsamp)
+summary(slrtimesp5_50)
+tidy(slrtimesp5_50, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+27. What is the odds ratio of a missed appointment for a group of patients who scheduled their appointment 60 days prior to the appointment date compared to patients a group of patients who scheduled their appointment 30 days prior to the appointment date?
+
+
+```{r}
+logodds_60 <- predict(slrtimesp50, tibble(time_elapsed = 60, time_spl_50 = 60 - 50))
+logodds_30 <- predict(slrtimesp50, tibble(time_elapsed = 30, time_spl_50 = 0))
+exp(logodds_60 - logodds_30)
+```
+
+
+28. Based on the results of mlr1, and previous regressions, does it appear that the relationship between missing an appointment and receiving an SMS reminder is confounded by any of the other predictors in mlr1 or a combination of the of the other predictors in mlr1? Why or why not?
+
+29. What is the p-value for testing whether time elapsed (as modeled in the regression) is statistically significant predictor of missing an appointment after accounting for the other predictors in the model?
+
+30. What is the p-value for testing whether the day of the week the appointment is scheduled is statistically significant predictor of missing an appointment after accounting for the other predictors in the model?
+
+
+```{r}
+#  Multiple logistic regressions
+        
+### Model 1: include SMS received, all other binary/categorical 
+# predictors that were statistically significant in in univariate 
+# regressions, and splines for age and time elapsed
+        
+mlr1 <- glm(missed_appt ~ SMS_received + Alcoholism 
+            + appt_day + Age + age_spl_75 + time_elapsed + time_spl_50,
+            family = binomial(link = "logit"), data = dfsamp)
+tidy(mlr1, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+null1 <- glm(missed_appt ~ SMS_received + Alcoholism + appt_day + Age + age_spl_75,
+                     family = binomial(link = "logit"), data = dfsamp)
+lrtest(mlr1, null1) %>% tidy() %>% knitr::kable()
+tidy(null1, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+null2<-glm(missed_appt ~ SMS_received + Alcoholism + Age + age_spl_75 + time_elapsed +
+             time_spl_50, family = binomial(link = "logit"), data = dfsamp)
+lrtest(mlr1,null2) %>% tidy() %>% knitr::kable()
+tidy(null2, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+31. What is the p-value for testing whether the association between missing an appointment and receiving a SMS reminder is modified by age, based on mlr2?
+
+
+```{r}
+# now create interaction terms between SMS reminder (which is stored as 
+# numeric with values 0/1) and age, age_spl_75
+        
+dfsamp <- dfsamp %>% mutate(SMS_age = SMS_received*Age,
+                            SMS_age_spl = SMS_received*age_spl_75)
+mlr2 <- glm(missed_appt ~ SMS_received + Alcoholism + appt_day + Age 
+            + age_spl_75 + SMS_age + SMS_age_spl + time_elapsed + time_spl_50,
+            family = binomial(link = "logit"), data = dfsamp)
+tidy(mlr2, conf.int = TRUE, exponentiate = TRUE) %>% knitr::kable()
+```
+
+
+```{r}
+# testing statistical signficance of interaction terms
+lrtest(mlr1, mlr2) %>% tidy() %>% knitr::kable()
+```
+
