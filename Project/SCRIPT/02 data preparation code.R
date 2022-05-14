@@ -42,6 +42,7 @@ data_fill <- data_fill %>%
     group_by(id) %>% 
     mutate(ethnicity = Mode(ethnicity)) %>% 
     mutate(ethnicity = recode_factor(ethnicity, "1" = "han", "0" = "others"))
+
 # education
 data_fill <- data_fill %>%
     mutate(edug = if_else(is.na(edug) == TRUE, as.character(edug_r), as.character(edug))) %>% 
@@ -62,10 +63,11 @@ data_fill <- data_fill %>%
 
 data_fill <- data_fill %>% 
     group_by(id) %>% 
-    fill(smkl_bi, dril_bi, pa_bi, diet_bi,
+    fill(hearloss,
+         smkl_bi, dril_bi, pa_bi, diet_bi,
          residence, coresidence, marital,
          hypertension, diabetes, heartdisea, strokecvd, copd, tb, cancer, ulcer, parkinson, bedsore,
-         adl, srhealth, mmse)
+         bathing, dressing, toileting, transferring, continence, feeding, ci)
 
 
 # --------------------------------------------------------------------------------------------------------- #
@@ -103,8 +105,11 @@ data_main <- data_main %>% filter(trueage >= 80)   # 20175 person-periods
 #   Step 1.4: exclude observations before study entry - first complete case in exposure and covariates
 #   After this step, the first row of each participant is the identified time origin/study entry
 data_main <- data_main %>%    # missing values indicator variable, 1 = no missing, 0 = missing
-    mutate(na.indi = case_when(if_all(c(hearloss, lifesty_bi, gender, trueage, ethnicity, edug, occupation, residence,
-                                        coresidence, marital),
+    mutate(na.indi = case_when(if_all(c(hearloss,
+                                        smkl_bi, dril_bi, pa_bi, diet_bi,
+                                        gender, trueage, ethnicity, edug, occupation, residence, coresidence, marital,
+                                        hypertension, diabetes, heartdisea, strokecvd, copd, tb, cancer, ulcer, parkinson, bedsore,
+                                        bathing, dressing, toileting, transferring, continence, feeding, ci),
                                       ~ is.na(.x) == FALSE) ~ 1,
                                TRUE ~ 0))
 

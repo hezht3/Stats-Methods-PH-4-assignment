@@ -21,14 +21,18 @@ data_main <- read_rds("./DATA/CLEAN/hearloss_ana18_repeated_main (enroll).rds")
 
 data_main %>%
     filter(id_num == 1) %>%
-    select(hearloss, gender, trueage, edug, residence, coresidence) %>%
+    as.data.frame() %>% 
+    select(hearloss, gender, trueage, ethnicity, edug, occupation, residence, coresidence, marital) %>%
     tbl_summary(by = "hearloss",
                 label = list(gender ~ "Sex",
                              trueage ~ "Age at baseline",
+                             ethnicity ~ "Ethnicity",
                              edug ~ "Education background",
+                             occupation ~ "Main occupation before age 60",
                              residence ~ "Residential status",
-                             coresidence ~ "Living arrangement"),
-                statistic = list(all_continuous() ~ "{mean} ({sd}) {median} ({p25}, {p75})"),
+                             coresidence ~ "Living arrangement",
+                             marital ~ "Current marital status"),
+                statistic = list(all_continuous() ~ "{median} ({p25}, {p75})"),
                 missing = "no") %>%
     add_overall() %>%
     bold_labels() %>%
